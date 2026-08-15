@@ -1,4 +1,4 @@
-# Digital Filter
+# C Digital Filter Lab
 
 Small C and GNU Octave/MATLAB-style experiment for implementing and validating low-pass digital filters against recorded sensor data.
 
@@ -8,6 +8,8 @@ The repository contains two implementations of the same filtering workflow:
 - an Octave/MATLAB reference implementation used to design and inspect the filter response
 
 The sample dataset is processed at **100 Hz**, and the scripts compare the raw and filtered signals in both the time and frequency domains.
+
+> **Historical note:** this repository was originally named `digital-filter` and was later renamed to `c-digital-filter-lab` to better reflect its role as a C/DSP implementation and validation experiment.
 
 ## What the project demonstrates
 
