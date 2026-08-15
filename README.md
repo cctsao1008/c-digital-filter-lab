@@ -1,19 +1,27 @@
 # C Digital Filter Lab
 
-Small C and GNU Octave/MATLAB-style experiment for implementing and validating low-pass digital filters against recorded sensor data.
+A small DSP experiment demonstrating a practical workflow for designing digital filters in GNU Octave/MATLAB, validating their response, extracting the resulting coefficients, and then implementing the same filters explicitly in C.
 
-The repository contains two implementations of the same filtering workflow:
+The main development flow is:
 
-- a direct C implementation intended to resemble embedded/MCU filter code
-- an Octave/MATLAB reference implementation used to design and inspect the filter response
+1. use Octave/MATLAB to inspect the recorded sensor data
+2. choose the filter type and design parameters
+3. generate and validate the filter response
+4. transfer the resulting coefficients into C
+5. implement the corresponding difference equation directly in C
+6. compare the C output against the numerical-tool reference
 
-The sample dataset is processed at **100 Hz**, and the scripts compare the raw and filtered signals in both the time and frequency domains.
+The sample dataset is processed at **100 Hz**, and the scripts inspect the raw and filtered signals in both the time and frequency domains.
 
 > **Historical note:** this repository was originally named `digital-filter` and was later renamed to `c-digital-filter-lab` to better reflect its role as a C/DSP implementation and validation experiment.
 
 ## What the project demonstrates
 
-The C implementation supports two low-pass filter forms:
+The project is centered on a **reference-model-to-C implementation workflow** rather than two independent implementations.
+
+The Octave/MATLAB side is used first to design and evaluate the filter. Once the filter behavior is acceptable, the coefficients are transferred into `main.c`, where the same filter is implemented explicitly without relying on a DSP library at runtime.
+
+Two low-pass filter forms are preserved in the project:
 
 - **4th-order Chebyshev Type II IIR**
   - design reference: `cheby2(4, 60, 12.5/50)`
@@ -24,26 +32,39 @@ The C implementation supports two low-pass filter forms:
   - design reference: `fir1(12, 12.5/50)`
   - available as the alternative compile-time path
 
-The coefficients used by the C implementation are written explicitly in `main.c`, allowing the filtering operation to be evaluated without relying on a DSP library at runtime.
+The coefficients generated from the numerical-tool design are written explicitly in `main.c`, making the implementation representative of how a validated filter design can later be moved into embedded firmware.
 
-## Signal-processing flow
+## Design-to-implementation flow
 
 ```text
-raw_data.csv
-      |
-      +-----------------------------+
-      |                             |
-      v                             v
- C implementation             Octave reference
-   main.c                  digital-filter_octa.m
-      |                             |
-      v                             v
-filtered_data.csv         Reference filtered signal
-      |                             |
-      +-------------+---------------+
-                    |
-                    v
-          Time-domain / FFT plots
+Recorded sensor data
+        |
+        v
+Octave / MATLAB
+        |
+        +-- inspect raw signal
+        +-- choose filter type
+        +-- choose order
+        +-- choose cutoff / attenuation parameters
+        +-- generate coefficients
+        +-- inspect time-domain response
+        +-- inspect frequency-domain response
+        |
+        v
+Validated filter design
+        |
+        v
+Transfer coefficients
+        |
+        v
+C implementation
+     main.c
+        |
+        v
+filtered_data.csv
+        |
+        v
+Compare with Octave/MATLAB reference
 ```
 
 The validation scripts use a sampling frequency of **100 Hz** and an FFT length of **1000** samples.
@@ -60,15 +81,30 @@ The validation scripts use a sampling frequency of **100 Hz** and an FFT length 
 └── raw_data.csv
 ```
 
+### `digital-filter_octa.m`
+
+GNU Octave/MATLAB-style design and reference script. It is the starting point of the workflow and is used to:
+
+- load the raw sensor data
+- report mean and standard deviation
+- plot the raw signal
+- calculate a double-sided FFT using `fftshift`
+- design the IIR filter using `cheby2`
+- apply the reference filter
+- inspect the filtered signal in the time domain
+- inspect the filtered signal in the frequency domain
+
+The FIR reference path using `fir1` is also present but commented out.
+
 ### `main.c`
 
-Standalone C implementation of the digital filter.
+Standalone C implementation of the filter designed in Octave/MATLAB.
 
 The program:
 
 1. loads `raw_data.csv`
 2. processes 10,001 samples
-3. applies either the IIR or FIR implementation
+3. applies either the IIR or FIR implementation using explicit coefficients
 4. writes the result to `filtered_data.csv`
 
 The default build selects the IIR path through:
@@ -79,19 +115,6 @@ The default build selects the IIR path through:
 
 Remove or disable that definition to compile the FIR path instead.
 
-### `digital-filter_octa.m`
-
-GNU Octave/MATLAB-style reference script. It:
-
-- loads the raw sensor data
-- reports mean and standard deviation
-- plots the raw signal
-- calculates a double-sided FFT using `fftshift`
-- designs and applies the reference filter using `cheby2`
-- plots the filtered signal and its FFT
-
-The FIR reference path using `fir1` is also present but commented out.
-
 ### `digital-filter_devc.m`
 
 Validation/plotting script for the output produced by the C program. It compares:
@@ -101,13 +124,15 @@ Validation/plotting script for the output produced by the C program. It compares
 - `filtered_data.csv` generated by `main.c`
 - FFT of the C-filtered output
 
+This provides a simple way to check that the C implementation behaves consistently with the filter designed in Octave/MATLAB.
+
 ### `digital-filter.dev`
 
 Legacy Dev-C++ project file for building `main.c` as a C console application.
 
 ### `raw_data.csv`
 
-Recorded input dataset used by both the C and Octave workflows.
+Recorded input dataset used by both the design/reference scripts and the C implementation.
 
 The scripts label the data as angular-rate samples.
 
@@ -141,9 +166,31 @@ y[n] = sum(b[k] * x[n-k]),  k = 0..12
 
 It keeps the previous 12 input samples in the same filter-state structure.
 
-## Running the experiment
+## Reproducing the workflow
 
-### 1. Build the C program
+### 1. Inspect and design the filter in Octave/MATLAB
+
+Run:
+
+```text
+digital-filter_octa.m
+```
+
+Use the recorded data and plots to evaluate the signal and filter response. The current IIR design is based on:
+
+```text
+cheby2(4, 60, 12.5/50)
+```
+
+The script produces the reference filter behavior and coefficients used by the C implementation.
+
+### 2. Transfer the coefficients to C
+
+Place the selected coefficients into the corresponding arrays/constants in `main.c` and implement the matching filter equation.
+
+This repository already contains the coefficients for the preserved IIR and FIR designs.
+
+### 3. Build the C program
 
 The repository includes a legacy Dev-C++ project, but `main.c` is plain C and can also be built with a conventional C compiler.
 
@@ -155,7 +202,7 @@ gcc -O2 -Wall -Wextra -o digital-filter main.c
 
 > Note: the source contains `system("pause")`, which is Windows-specific. Remove or replace that line when running on Linux or macOS.
 
-### 2. Run the C implementation
+### 4. Run the C implementation
 
 Run the executable from the repository directory so that `raw_data.csv` can be found:
 
@@ -175,7 +222,7 @@ The program creates:
 filtered_data.csv
 ```
 
-### 3. Inspect the C result
+### 5. Validate the C result
 
 Run:
 
@@ -183,27 +230,33 @@ Run:
 digital-filter_devc.m
 ```
 
-in GNU Octave or a compatible MATLAB environment.
-
-### 4. Compare with the Octave reference
-
-Run:
-
-```text
-digital-filter_octa.m
-```
-
-This applies the corresponding reference filter directly in Octave and displays the time- and frequency-domain results.
+in GNU Octave or a compatible MATLAB environment to inspect the C-generated output in the time and frequency domains.
 
 ## Intended use
 
-This repository is primarily a compact DSP/embedded-software experiment for understanding how a filter designed in Octave/MATLAB can be translated into explicit C coefficients and state-update equations suitable for later use in embedded firmware.
+This repository is primarily a compact example of a common embedded-DSP engineering workflow:
+
+```text
+Numerical design / reference model
+              |
+              v
+       Filter parameters
+       and coefficients
+              |
+              v
+      Explicit C implementation
+              |
+              v
+     Implementation validation
+```
 
 It is useful for studying:
 
-- IIR versus FIR implementation structure
-- coefficient transfer from numerical tools to C
-- filter state management
+- designing IIR and FIR filters in Octave/MATLAB
+- selecting filter order and frequency parameters
+- inspecting filter behavior before implementation
+- transferring coefficients from numerical tools into C
+- implementing filter state and equations directly in C
 - sampled sensor-data processing
 - FFT-based inspection of filter behavior
 - reference-model versus implementation comparison
@@ -229,4 +282,4 @@ For an embedded target, the filter coefficients, numeric precision, sampling int
 
 **Historical / experimental project.**
 
-The repository is retained as a reference implementation and as an example of translating digital-filter designs from Octave/MATLAB into straightforward C code.
+The repository is retained as a reference example of designing and validating a digital filter in Octave/MATLAB and then translating the accepted design into straightforward C code.
